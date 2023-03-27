@@ -1,0 +1,38 @@
+CREATE OR REPLACE PROCEDURE GET_HLR_IN
+   ( p_msisdn IN VARCHAR2, p_hlr OUT VARCHAR2, p_in OUT VARCHAR2)
+   IS
+   v_msisdn	  varchar2(15);
+   v_hlr	  varchar2(30);
+   v_in		  varchar2(30);
+   v_count	  number;
+   -- Declare program variables as shown above
+BEGIN
+	 v_hlr:= 'N/A';
+   	 v_in:= 'N/A';
+   
+   	 if p_msisdn is null or length(p_msisdn) < 11 then
+   	  	return;
+     end if;
+
+   	 v_msisdn:= substr(p_msisdn, 2, length(p_msisdn)-1);
+	 loop
+	 	 select count(*) into v_count from def_hlr_in d where d.prefix= v_msisdn;
+	 	 if v_count= 1 then
+	 	 	 	select code_hlr, code_in into v_hlr, v_in
+	   			from def_hlr_in	where prefix= v_msisdn;
+	 	 	 	exit;
+	 	 elsif v_count= 0 and length(v_msisdn) > 2 then
+	 	 	   v_msisdn:= substr(v_msisdn, 1, length(v_msisdn)-1);
+	 	 else
+	 	 	   exit;
+	 	 end if;	 	 	
+	 end loop;
+	 
+	 p_hlr:= v_hlr;
+	 p_in:= v_in;
+/*
+EXCEPTION
+    WHEN exception_name THEN
+        statements ;
+*/
+END;

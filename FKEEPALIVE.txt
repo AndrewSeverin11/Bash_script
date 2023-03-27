@@ -1,0 +1,103 @@
+FKEEP_ALIVE  https://0411rncpnextrabbit02.pv.mts.ru/icingaweb2/monitoring/service/show?host=0411ppd01&service=f-keepalive
+ 
+#!/bin/bash
+#
+#a2@mts.ru
+#2022-04-21
+#
+# Standard Icinga return codes
+E_SUCCESS="0"
+E_WARNING="1"
+E_CRITICAL="2"
+E_UNKNOWN="3"
+
+usage() {
+        cat << EOU
+Usage: $0 <OPTIONS>
+        -u <username>
+        -p <password>
+        -a <URL, e.g. http://localhost:8080/f-keepalive/>
+        -c <Messages to go CRITICAL>
+Example:
+        $0 -u guest -p guest -a "http://localhost:8080/f-keepalive/" -c DOWN
+EOU
+        exit ${E_UNKNOWN}
+}
+
+while getopts ":u:p:a:q:c:" o; do
+    case "${o}" in
+        u)
+            u=${OPTARG}
+            ;;
+        p)
+            p=${OPTARG}
+            ;;
+        a)
+            a=${OPTARG}
+            ;;
+        c)
+            c=${OPTARG}
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
+if [ -z "${a}" ] || [ -z "${c}" ]; then
+        usage
+fi
+
+curl=`which curl`
+jq=`which jq`
+
+if [ -z "${curl}" ] || ! [ -x "${curl}" ]; then
+        echo "UNKNOWN: curl not found"
+        exit ${E_UNKNOWN}
+fi
+
+if [ -z "${jq}" ] || ! [ -x "${jq}" ]; then
+        echo "UNKNOWN: jq not found"
+        exit ${E_UNKNOWN} 
+ 
+[‎20.‎03.‎2023 17:35]  Кирсанов Олег Валерьевич:  
+Без названия 
+fi
+
+response=`curl -s -u $u:$p -o - "$a"`
+
+# Check for a simple error provided by the HTTP
+http_error=`echo $response | jq ".error?"`
+
+if ! [ -z "${http_error}" ] && [ "${http_error}" != "null" ]; then
+        echo "CRITICAL: HTTP returned: ${http_error}"
+        exit ${E_CRITICAL}
+fi
+
+if [ $? != 0 ]; then
+        echo "CRITICAL: Bad response from f_keepalive HTTP"
+        exit ${E_CRITICAL}
+else
+        state=`echo $response | jq ".status"`
+fi
+
+if [ -z "${state}" ]; then
+        echo "CRITICAL: No response from f_keepalive HTTP"
+        exit ${E_CRITICAL}
+fi
+
+if [ $state == $c ]; then
+        echo "CRITICAL: f-keepalive STATUS is ${state}"
+        echo "${response}" | jq ".details"
+        exit ${E_CRITICAL}
+fi
+
+if [ $state != $c ]; then
+        echo "OK: f-keepalive STATUS is ${state}"
+        echo "${response}" | jq ".details"
+        exit ${E_SUCCESS}
+fi
+
+exit ${E_UNKNOWN} 
+ 
